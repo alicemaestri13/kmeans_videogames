@@ -36,8 +36,8 @@ df = load_dataframe()
 # --- 2. NUOVO MENU DI NAVIGAZIONE A BOTTONI ---
 scelta = option_menu(
     menu_title=None,
-    options=["Esplorazione Dati", "Trova Giochi Simili", "Come Funziona"],
-    icons=["bar-chart-line", "controller", "lightbulb"],
+    options=["Esplorazione Dati", "Trova Giochi Simili", "Clustering K-Means", "Come Funziona"],
+    icons=["bar-chart-line", "controller", "pie-chart", "lightbulb"],,
     default_index=1,
     orientation="horizontal",
     styles={
@@ -92,7 +92,51 @@ elif scelta == "Trova Giochi Simili":
                 genere = df.iloc[indice_vicino]['Genre']
                 score = df.iloc[indice_vicino]['Critic_Score']
                 st.info(f"**{i}. {nome}** | Piattaforma: {piattaforma} | Genere: {genere} | Voto Critica: {score}/100")
+elif scelta == "Clustering K-Means":
+    st.header("Analisi dei Gruppi (K-Means Clustering)")
+    
+    # Creiamo due colonne: una stretta per la sidebar e una larga per il grafico
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.subheader("Parametri K-Means")
+        # Slider identici a quelli della tua foto
+        k = st.slider("Numero di cluster (k)", min_value=2, max_value=8, value=4)
+        max_iter = st.slider("Numero massimo di iterazioni", min_value=10, max_value=300, value=100)
+        random_seed = st.slider("Seed casuale per K-means", min_value=0, max_value=100, value=42)
+        
+        st.write("---")
+        st.markdown("**Perché usare K-Means?**")
+        st.write("Ci aiuta a scoprire se i videogiochi si raggruppano naturalmente in 'famiglie' (es. giochi con voti alti e vendite basse, oppure capolavori campioni d'incassi).")
 
+    with col2:
+        # Prepariamo i dati per il clustering (usiamo Voto e Vendite)
+        # Rimuoviamo gli outlier estremi (es. Wii Sports che ha venduto 80 milioni) per un grafico più leggibile
+        df_cluster = df[df['Global_Sales'] < 30].copy()
+        X = df_cluster[['Critic_Score', 'Global_Sales']]
+        
+        # Addestriamo il K-Means "al volo" in base agli slider dell'utente
+        from sklearn.cluster import KMeans
+        kmeans = KMeans(n_clusters=k, max_iter=max_iter, random_state=random_seed, n_init='auto')
+        df_cluster['Cluster'] = kmeans.fit_predict(X)
+        
+        # Trasformiamo il numero del cluster in testo (es. "Cluster 0") per i colori
+        df_cluster['Cluster'] = df_cluster['Cluster'].astype(str)
+        
+        # Creiamo il grafico interattivo con Plotly!
+        import plotly.express as px
+        fig = px.scatter(
+            df_cluster,
+            x="Critic_Score",
+            y="Global_Sales",
+            color="Cluster",
+            hover_name="Name", # Passando il mouse si vede il nome del gioco!
+            hover_data=["Genre", "Platform"],
+            title=f"Distribuzione Videogiochi: Voto Critica vs Vendite Globali ({k} Cluster)",
+            labels={"Critic_Score": "Voto Critica (0-100)", "Global_Sales": "Vendite (Milioni)"}
+        )
+        # Mostriamo il grafico
+        st.plotly_chart(fig, use_container_width=True)
 elif scelta == "Come Funziona":
     st.header("Dietro le quinte: K-Nearest Neighbors")
     st.write("""
