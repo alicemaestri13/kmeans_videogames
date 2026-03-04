@@ -1,7 +1,9 @@
+
 import streamlit as st
 import pandas as pd
 import joblib
 from streamlit_option_menu import option_menu
+import os
 
 # Configurazione iniziale della pagina
 st.set_page_config(page_title="Game Recommender", page_icon="🎮", layout="wide")
@@ -10,19 +12,27 @@ st.title("🎮 Sistema di Raccomandazione Videogiocatori")
 st.write("Trova il tuo prossimo gioco preferito grazie al Machine Learning!")
 
 # --- 1. CARICAMENTO DATI E MODELLO ---
+
+# Calcola il percorso esatto della cartella in cui si trova app.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 @st.cache_resource
 def load_model_and_features():
-    knn = joblib.load('knn_model.pkl')
-    features = joblib.load('features_scaled.pkl')
+    # Unisce il percorso della cartella al nome del file
+    percorso_knn = os.path.join(BASE_DIR, 'knn_model.pkl')
+    percorso_features = os.path.join(BASE_DIR, 'features_scaled.pkl')
+    
+    knn = joblib.load(percorso_knn)
+    features = joblib.load(percorso_features)
     return knn, features
 
 @st.cache_data
 def load_dataframe():
-    return pd.read_pickle('dataframe_pulito.pkl')
+    percorso_df = os.path.join(BASE_DIR, 'dataframe_pulito.pkl')
+    return pd.read_pickle(percorso_df)
 
 knn_model, features_scaled = load_model_and_features()
 df = load_dataframe()
-
 # --- 2. NUOVO MENU DI NAVIGAZIONE A BOTTONI ---
 scelta = option_menu(
     menu_title=None,
