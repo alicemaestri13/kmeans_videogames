@@ -37,7 +37,7 @@ df = load_dataframe()
 scelta = option_menu(
     menu_title=None,
     options=["Esplorazione Dati", "Trova Giochi Simili", "Clustering K-Means", "Come Funziona"],
-    icons=["bar-chart-line", "controller", "pie-chart", "lightbulb"],
+    icons=["bar-chart-line", "controller", "pie-chart", "lightbulb"],,
     default_index=1,
     orientation="horizontal",
     styles={
@@ -95,48 +95,81 @@ elif scelta == "Trova Giochi Simili":
 elif scelta == "Clustering K-Means":
     st.header("Analisi dei Gruppi (K-Means Clustering)")
     
-    # Creiamo due colonne: una stretta per la sidebar e una larga per il grafico
+    # Layout a due colonne che simula la dashboard della tua amica
     col1, col2 = st.columns([1, 3])
     
     with col1:
-        st.subheader("Parametri K-Means")
-        # Slider identici a quelli della tua foto
-        k = st.slider("Numero di cluster (k)", min_value=2, max_value=8, value=4)
-        max_iter = st.slider("Numero massimo di iterazioni", min_value=10, max_value=300, value=100)
-        random_seed = st.slider("Seed casuale per K-means", min_value=0, max_value=100, value=42)
+        st.subheader("Configurazione")
+        # Slider per scegliere quanti giochi pescare dal dataset
+        n_giochi = st.slider("Numero di giochi nel dataset", min_value=100, max_value=len(df), value=500, step=100)
+        seed_campionamento = st.slider("Seed per campionamento", min_value=0, max_value=100, value=42)
         
         st.write("---")
-        st.markdown("**Perché usare K-Means?**")
-        st.write("Ci aiuta a scoprire se i videogiochi si raggruppano naturalmente in 'famiglie' (es. giochi con voti alti e vendite basse, oppure capolavori campioni d'incassi).")
+        st.subheader("Caratteristiche per il clustering")
+        # Checkbox per far scegliere all'utente quali dati usare
+        usa_voto = st.checkbox("Voto Critica", value=True)
+        usa_vendite = st.checkbox("Vendite Globali", value=True)
+        usa_anno = st.checkbox("Anno di uscita", value=False)
+        
+        st.write("---")
+        st.subheader("Parametri K-Means")
+        k = st.slider("Numero di cluster (k)", min_value=2, max_value=8, value=5)
+        random_seed = st.slider("Seed casuale per K-means", min_value=0, max_value=100, value=42)
 
     with col2:
-        # Prepariamo i dati per il clustering (usiamo Voto e Vendite)
-        # Rimuoviamo gli outlier estremi (es. Wii Sports che ha venduto 80 milioni) per un grafico più leggibile
-        df_cluster = df[df['Global_Sales'] < 30].copy()
-        X = df_cluster[['Critic_Score', 'Global_Sales']]
+        # 1. Peschiamo un campione casuale di giochi
+        df_cluster = df.sample(n=n_giochi, random_state=seed_campionamento).copy()
         
-        # Addestriamo il K-Means "al volo" in base agli slider dell'utente
-        from sklearn.cluster import KMeans
-        kmeans = KMeans(n_clusters=k, max_iter=max_iter, random_state=random_seed, n_init='auto')
-        df_cluster['Cluster'] = kmeans.fit_predict(X)
+        # 2. Capiamo quali caratteristiche ha spuntato l'utente
+        feature_cols = []
+        if usa_voto: feature_cols.append('Critic_Score')
+        if usa_vendite: feature_cols.append('Global_Sales')
+        if usa_anno: feature_cols.append('Year_of_Release')
         
-        # Trasformiamo il numero del cluster in testo (es. "Cluster 0") per i colori
-        df_cluster['Cluster'] = df_cluster['Cluster'].astype(str)
-        
-        # Creiamo il grafico interattivo con Plotly!
-        import plotly.express as px
-        fig = px.scatter(
-            df_cluster,
-            x="Critic_Score",
-            y="Global_Sales",
-            color="Cluster",
-            hover_name="Name", # Passando il mouse si vede il nome del gioco!
-            hover_data=["Genre", "Platform"],
-            title=f"Distribuzione Videogiochi: Voto Critica vs Vendite Globali ({k} Cluster)",
-            labels={"Critic_Score": "Voto Critica (0-100)", "Global_Sales": "Vendite (Milioni)"}
-        )
-        # Mostriamo il grafico
-        st.plotly_chart(fig, use_container_width=True)
+        # Controlliamo che ne abbia scelte almeno due per poter fare il grafico
+        if len(feature_cols) < 2:
+            st.warning("⚠️ Seleziona almeno due caratteristiche dalla barra laterale per visualizzare il grafico.")
+        else:
+            X = df_cluster[feature_cols]
+            
+            # 3. IL TRUCCO MAGICO: Standardizziamo i dati!
+            from sklearn.preprocessing import StandardScaler
+            scaler_kmeans = StandardScaler()
+            X_scaled = scaler_kmeans.fit_transform(X)
+            
+            # 4. Applichiamo il K-Means
+            from sklearn.cluster import KMeans
+            kmeans = KMeans(n_clusters=k, random_state=random_seed, n_init='auto')
+            df_cluster['Cluster'] = kmeans.fit_predict(X_scaled)
+            
+            # Formattiamo i cluster come testo per colorarli bene
+            df_cluster['Cluster'] = df_cluster['Cluster'].astype(str)
+            
+            # Scegliamo cosa mettere sugli assi X e Y (le prime due spunte selezionate)
+            asse_x = feature_cols[0]
+            asse_y = feature_cols[1]
+            
+            # 5. Creiamo il grafico!
+            import plotly.express as px
+            fig = px.scatter(
+                df_cluster,
+                x=asse_x,
+                y=asse_y,
+                color="Cluster",
+                hover_name="Name",
+                hover_data=["Genre", "Platform"],
+                title=f"Distribuzione Videogiochi: {asse_x} vs {asse_y}",
+                color_discrete_sequence=px.colors.qualitative.Pastel # Colori più tenui e professionali
+            )
+            
+            # Rimuoviamo lo sfondo per renderlo più pulito come quello della tua amica
+            fig.update_layout(plot_bgcolor="rgba(0,0,0,0)")
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Spiegazione per il prof
+            st.markdown("### Perché usare K-Means per i Videogiochi?")
+            st.write("Il clustering ci aiuta a scoprire le 'ricette' del mercato. Ad esempio, potremmo individuare un cluster di **'Capolavori di nicchia'** (voti alti ma vendite basse) o i classici **'AAA Games'** (voti medi ma incassi stellari). Standardizzando i dati prima di analizzarli, l'algoritmo non viene ingannato dalle diverse scale di grandezza tra anni, voti e milioni di copie vendute.")
 elif scelta == "Come Funziona":
     st.header("Dietro le quinte: K-Nearest Neighbors")
     st.write("""
