@@ -37,7 +37,7 @@ df = load_dataframe()
 scelta = option_menu(
     menu_title=None,
     options=["Esplorazione Dati", "Trova Giochi Simili", "Clustering K-Means", "Come Funziona"],
-    icons=["bar-chart-line", "controller", "pie-chart", "lightbulb"],,
+    icons=["bar-chart-line", "controller", "pie-chart", "lightbulb"],
     default_index=1,
     orientation="horizontal",
     styles={
@@ -181,3 +181,4 @@ elif scelta == "Come Funziona":
     Quando selezioni un gioco, il modello cerca i **5 punti più vicini** nello spazio multidimensionale, 
     proponendoti i titoli matematicamente più simili!
     """)
+
